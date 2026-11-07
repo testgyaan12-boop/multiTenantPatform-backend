@@ -1,0 +1,35 @@
+# Build output
+target/
+*.class
+*.jar
+*.war
+*.ear
+
+# Maven wrapper
+.mvn/wrapper/maven-wrapper.jar
+
+# IDE
+.settings/
+.classpath
+.factorypath
+.project
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Uploaded files
+uploads/
+
+# Environment
+.env
+.env.*

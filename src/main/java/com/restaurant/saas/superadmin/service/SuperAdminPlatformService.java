@@ -5,8 +5,10 @@ import com.restaurant.saas.audit.repository.AuditLogRepository;
 import com.restaurant.saas.audit.service.AuditService;
 import com.restaurant.saas.branch.entity.Branch;
 import com.restaurant.saas.branch.repository.BranchRepository;
+import com.restaurant.saas.common.exception.ApiException;
 import com.restaurant.saas.common.exception.ConflictException;
 import com.restaurant.saas.common.exception.NotFoundException;
+import com.restaurant.saas.authorization.security.AuthenticatedPrincipal;
 import com.restaurant.saas.common.web.PageResponse;
 import com.restaurant.saas.identity.entity.Permission;
 import com.restaurant.saas.identity.entity.Role;
@@ -32,6 +34,7 @@ import com.restaurant.saas.subscription.repository.SubscriptionPlanRepository;
 import com.restaurant.saas.subscription.repository.SubscriptionRepository;
 import com.restaurant.saas.tenant.entity.Tenant;
 import com.restaurant.saas.tenant.repository.TenantRepository;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.security.core.Authentication;
@@ -505,7 +508,135 @@ public class SuperAdminPlatformService {
         }
         role.setPermissions(permissions);
         roleRepository.save(role);
+        auditService.record(role.getTenantId(), currentUserId(), currentUserEmail(), "ROLE_PERMISSIONS_UPDATED", "Role",
+            String.valueOf(role.getId()), null, role.getCode());
         return roleView(role);
+    }
+
+    public record RoleRequest(String code, String name, String description) {
+    }
+
+    @Transactional
+    public RoleView createRole(RoleRequest request) {
+        String code = request.code().trim().toUpperCase(Locale.ROOT);
+        if (code.isBlank()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "invalid_role_code", "Role code is required");
+        }
+        if (roleRepository.findByCodeAndTenantIdIsNull(code).isPresent()) {
+            throw new ConflictException("role_exists", "A role with this code already exists");
+        }
+        Role role = new Role();
+        role.setCode(code);
+        role.setName(request.name().trim());
+        role.setDescription(blankToNull(request.description()));
+        role.setSystemRole(Boolean.FALSE);
+        role.setTenantId(null);
+        Role saved = roleRepository.save(role);
+        auditService.record(null, currentUserId(), currentUserEmail(), "ROLE_CREATED", "Role",
+            String.valueOf(saved.getId()), null, saved.getCode());
+        return roleView(saved);
+    }
+
+    @Transactional
+    public RoleView updateRole(Long id, RoleRequest request) {
+        Role role = roleRepository.findById(id)
+            .orElseThrow(() -> new NotFoundException("Role " + id + " not found"));
+        if (Boolean.TRUE.equals(role.getSystemRole())) {
+            throw new ConflictException("system_role", "System roles cannot be modified");
+        }
+        String code = request.code().trim().toUpperCase(Locale.ROOT);
+        if (!code.equals(role.getCode()) && roleRepository.findByCodeAndTenantIdIsNull(code).isPresent()) {
+            throw new ConflictException("role_exists", "A role with this code already exists");
+        }
+        role.setCode(code);
+        role.setName(request.name().trim());
+        role.setDescription(blankToNull(request.description()));
+        Role saved = roleRepository.save(role);
+        auditService.record(role.getTenantId(), currentUserId(), currentUserEmail(), "ROLE_UPDATED", "Role",
+            String.valueOf(saved.getId()), null, saved.getCode());
+        return roleView(saved);
+    }
+
+    @Transactional
+    public void deleteRole(Long id) {
+        Role role = roleRepository.findById(id)
+            .orElseThrow(() -> new NotFoundException("Role " + id + " not found"));
+        if (Boolean.TRUE.equals(role.getSystemRole())) {
+            throw new ConflictException("system_role", "System roles cannot be deleted");
+        }
+        long assigned = userRepository.findAll().stream()
+            .filter(user -> user.getRoles().stream().anyMatch(r -> r.getId().equals(id)))
+            .count();
+        if (assigned > 0) {
+            throw new ConflictException("role_in_use", "Role is assigned to one or more users");
+        }
+        roleRepository.delete(role);
+        auditService.record(role.getTenantId(), currentUserId(), currentUserEmail(), "ROLE_DELETED", "Role",
+            String.valueOf(id), null, role.getCode());
+    }
+
+    @Transactional
+    public RoleView assignUserRole(Long userId, String roleCode) {
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -> new NotFoundException("User " + userId + " not found"));
+        Role role = roleRepository.findByCodeAndTenantIdIsNull(roleCode.trim().toUpperCase(Locale.ROOT))
+            .orElseThrow(() -> new NotFoundException("Role " + roleCode + " not found"));
+        if (user.getRoles().contains(role)) {
+            throw new ConflictException("role_assigned", "User already has this role");
+        }
+        user.getRoles().add(role);
+        userRepository.save(user);
+        auditService.record(user.getTenantId(), currentUserId(), currentUserEmail(), "USER_ROLE_ASSIGNED", "User",
+            String.valueOf(user.getId()), null, role.getCode());
+        return roleView(role);
+    }
+
+    @Transactional
+    public void removeUserRole(Long userId, String roleCode) {
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -> new NotFoundException("User " + userId + " not found"));
+        Role role = roleRepository.findByCodeAndTenantIdIsNull(roleCode.trim().toUpperCase(Locale.ROOT))
+            .orElseThrow(() -> new NotFoundException("Role " + roleCode + " not found"));
+        if (!user.getRoles().remove(role)) {
+            throw new ConflictException("role_not_assigned", "User does not have this role");
+        }
+        userRepository.save(user);
+        auditService.record(user.getTenantId(), currentUserId(), currentUserEmail(), "USER_ROLE_REMOVED", "User",
+            String.valueOf(user.getId()), null, role.getCode());
+    }
+
+    @Transactional(readOnly = true)
+    public List<UserView> usersInRole(Long roleId) {
+        Role role = roleRepository.findById(roleId)
+            .orElseThrow(() -> new NotFoundException("Role " + roleId + " not found"));
+        Map<Long, String> tenantNames = tenantNames();
+        return userRepository.findAll().stream()
+            .filter(user -> user.getRoles().stream().anyMatch(r -> r.getId().equals(roleId)))
+            .map(user -> userView(user, tenantNames))
+            .sorted(Comparator.comparing(UserView::email))
+            .toList();
+    }
+
+    private String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
+    }
+
+    private Long currentUserId() {
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null
+            || !(authentication.getPrincipal() instanceof AuthenticatedPrincipal p)) {
+            return null;
+        }
+        return p.userId();
+    }
+
+    private String currentUserEmail() {
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null
+            || !(authentication.getPrincipal() instanceof AuthenticatedPrincipal p)) {
+            return null;
+        }
+        return p.email();
     }
 
     // ---------- branches ----------

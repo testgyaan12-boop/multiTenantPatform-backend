@@ -110,6 +110,7 @@ com\restaurant\saas\audit\repository\AuditLogRepository.class
 com\restaurant\saas\inquiry\dto\StoreView$BookingConfig.class
 com\restaurant\saas\reporting\web\ReportingController$CustomerSummary.class
 com\restaurant\saas\superadmin\service\SuperAdminPlatformService$PlanRequest.class
+com\restaurant\saas\superadmin\service\SuperAdminPlatformService$RoleRequest.class
 com\restaurant\saas\superadmin\service\SuperAdminStatsService$UsageLimit.class
 com\restaurant\saas\superadmin\service\SuperAdminStatsService$PlanDistributionItem.class
 com\restaurant\saas\employee\entity\TableAssignment.class

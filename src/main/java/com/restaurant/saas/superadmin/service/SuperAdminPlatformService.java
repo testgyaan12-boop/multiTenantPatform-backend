@@ -35,6 +35,7 @@ import com.restaurant.saas.subscription.repository.SubscriptionRepository;
 import com.restaurant.saas.tenant.entity.Tenant;
 import com.restaurant.saas.tenant.repository.TenantRepository;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.security.core.Authentication;
@@ -78,6 +79,7 @@ public class SuperAdminPlatformService {
     private final PlatformSettingRepository settingRepository;
     private final FeatureFlagRepository flagRepository;
     private final PermissionRepository permissionRepository;
+    private final PasswordEncoder passwordEncoder;
 
     public SuperAdminPlatformService(
         TenantRepository tenantRepository,
@@ -94,7 +96,8 @@ public class SuperAdminPlatformService {
         CouponRepository couponRepository,
         PlatformSettingRepository settingRepository,
         FeatureFlagRepository flagRepository,
-        PermissionRepository permissionRepository) {
+        PermissionRepository permissionRepository,
+        PasswordEncoder passwordEncoder) {
         this.tenantRepository = tenantRepository;
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
@@ -110,6 +113,7 @@ public class SuperAdminPlatformService {
         this.settingRepository = settingRepository;
         this.flagRepository = flagRepository;
         this.permissionRepository = permissionRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
     // ---------- subscriptions ----------
@@ -467,6 +471,99 @@ public class SuperAdminPlatformService {
         return new InviteResponse(userView(user, tenantNames()), user.getInviteToken(), user.getInviteExpiresAt());
     }
 
+    // ---------- user management ----------
+
+    public record UserUpdateRequest(String firstName, String lastName, String email, String phone, String status) {
+    }
+
+    public record UserRolesRequest(List<String> roleCodes) {
+    }
+
+    public record PasswordResetResponse(UserView user, String temporaryPassword) {
+    }
+
+    @Transactional
+    public UserView updateUser(Long id, UserUpdateRequest request) {
+        User user = userRepository.findById(id)
+            .orElseThrow(() -> new NotFoundException("User " + id + " not found"));
+        user.setFirstName(request.firstName.trim());
+        user.setLastName(request.lastName.trim());
+        user.setEmail(request.email.trim().toLowerCase(Locale.ROOT));
+        user.setPhone(request.phone == null ? null : request.phone.trim());
+        user.setStatus(request.status);
+        userRepository.save(user);
+        auditService.record(user.getTenantId(), currentUserId(), currentUserEmail(), "USER_UPDATED", "User",
+            String.valueOf(user.getId()), null, user.getEmail());
+        return userView(user, tenantNames());
+    }
+
+    @Transactional
+    public UserView lockUser(Long id) {
+        User user = userRepository.findById(id)
+            .orElseThrow(() -> new NotFoundException("User " + id + " not found"));
+        if (user.getId().equals(currentUserId())) {
+            throw new ConflictException("self_action", "You cannot lock your own account");
+        }
+        user.setStatus("LOCKED");
+        userRepository.save(user);
+        auditService.record(user.getTenantId(), currentUserId(), currentUserEmail(), "USER_LOCKED", "User",
+            String.valueOf(user.getId()), null, user.getEmail());
+        return userView(user, tenantNames());
+    }
+
+    @Transactional
+    public UserView unlockUser(Long id) {
+        User user = userRepository.findById(id)
+            .orElseThrow(() -> new NotFoundException("User " + id + " not found"));
+        user.setStatus("ACTIVE");
+        userRepository.save(user);
+        auditService.record(user.getTenantId(), currentUserId(), currentUserEmail(), "USER_UNLOCKED", "User",
+            String.valueOf(user.getId()), null, user.getEmail());
+        return userView(user, tenantNames());
+    }
+
+    @Transactional
+    public PasswordResetResponse resetPassword(Long id) {
+        User user = userRepository.findById(id)
+            .orElseThrow(() -> new NotFoundException("User " + id + " not found"));
+        String temporaryPassword = UUID.randomUUID().toString().replace("-", "").substring(0, 12);
+        user.setPasswordHash(passwordEncoder.encode(temporaryPassword));
+        userRepository.save(user);
+        auditService.record(user.getTenantId(), currentUserId(), currentUserEmail(), "USER_PASSWORD_RESET", "User",
+            String.valueOf(user.getId()), null, user.getEmail());
+        return new PasswordResetResponse(userView(user, tenantNames()), temporaryPassword);
+    }
+
+    @Transactional
+    public UserView changeUserRoles(Long id, UserRolesRequest request) {
+        User user = userRepository.findById(id)
+            .orElseThrow(() -> new NotFoundException("User " + id + " not found"));
+        Set<Role> roles = new HashSet<>();
+        for (String code : request.roleCodes()) {
+            Role role = roleRepository.findByCodeAndTenantIdIsNull(code.trim().toUpperCase(Locale.ROOT))
+                .orElseThrow(() -> new NotFoundException("Role " + code + " not found"));
+            roles.add(role);
+        }
+        user.setRoles(roles);
+        userRepository.save(user);
+        auditService.record(user.getTenantId(), currentUserId(), currentUserEmail(), "USER_ROLES_CHANGED", "User",
+            String.valueOf(user.getId()), null, user.getEmail());
+        return userView(user, tenantNames());
+    }
+
+    @Transactional
+    public void deleteUser(Long id) {
+        User user = userRepository.findById(id)
+            .orElseThrow(() -> new NotFoundException("User " + id + " not found"));
+        if (user.getId().equals(currentUserId())) {
+            throw new ConflictException("self_action", "You cannot delete your own account");
+        }
+        user.softDelete();
+        userRepository.save(user);
+        auditService.record(user.getTenantId(), currentUserId(), currentUserEmail(), "USER_DELETED", "User",
+            String.valueOf(user.getId()), null, user.getEmail());
+    }
+
     // ---------- roles ----------
 
     public record RoleView(Long id, String code, String name, String description, Boolean systemRole,
@@ -499,12 +596,12 @@ public class SuperAdminPlatformService {
     public RoleView updateRolePermissions(Long id, RolePermissionsRequest request) {
         Role role = roleRepository.findById(id)
             .orElseThrow(() -> new NotFoundException("Role " + id + " not found"));
-        if (Boolean.TRUE.equals(role.getSystemRole())) {
-            throw new ConflictException("system_role", "Permissions of system roles cannot be edited");
-        }
         Set<Permission> permissions = new HashSet<>(permissionRepository.findByIdIn(request.permissionIds()));
         if (permissions.size() != new HashSet<>(request.permissionIds()).size()) {
             throw new NotFoundException("One or more permissions were not found");
+        }
+        if ("SUPER_ADMIN".equals(role.getCode()) && permissions.isEmpty()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "empty_permissions", "SUPER_ADMIN must retain at least one permission");
         }
         role.setPermissions(permissions);
         roleRepository.save(role);
@@ -570,7 +667,8 @@ public class SuperAdminPlatformService {
         if (assigned > 0) {
             throw new ConflictException("role_in_use", "Role is assigned to one or more users");
         }
-        roleRepository.delete(role);
+        role.softDelete();
+        roleRepository.save(role);
         auditService.record(role.getTenantId(), currentUserId(), currentUserEmail(), "ROLE_DELETED", "Role",
             String.valueOf(id), null, role.getCode());
     }
@@ -603,6 +701,21 @@ public class SuperAdminPlatformService {
         userRepository.save(user);
         auditService.record(user.getTenantId(), currentUserId(), currentUserEmail(), "USER_ROLE_REMOVED", "User",
             String.valueOf(user.getId()), null, role.getCode());
+    }
+
+    @Transactional
+    public RoleView repairSuperAdminPermissions() {
+        Role role = roleRepository.findByCodeAndTenantIdIsNull("SUPER_ADMIN")
+            .orElseThrow(() -> new NotFoundException("SUPER_ADMIN role not found"));
+        List<Permission> allPermissions = permissionRepository.findAll();
+        Set<Permission> current = new HashSet<>(role.getPermissions());
+        Set<Permission> updated = new HashSet<>(current);
+        updated.addAll(allPermissions);
+        role.setPermissions(updated);
+        roleRepository.save(role);
+        auditService.record(null, currentUserId(), currentUserEmail(), "SUPER_ADMIN_PERMISSIONS_REPAIRED", "Role",
+            String.valueOf(role.getId()), null, "granted all " + allPermissions.size() + " permissions");
+        return roleView(role);
     }
 
     @Transactional(readOnly = true)

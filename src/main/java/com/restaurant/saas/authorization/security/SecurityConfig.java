@@ -65,6 +65,7 @@ public class SecurityConfig {
                 ).permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/public/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/uploads/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/v1/storage/**").permitAll()
                 .requestMatchers("/api/v1/superadmin/**").hasRole("SUPER_ADMIN")
                 .anyRequest().authenticated())
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);

@@ -95,13 +95,10 @@ app:
       api-key: ""
       webhook-secret: ""
   storage:
-    provider: local
-    endpoint: http://localhost:9000
-    region: us-east-1
-    bucket: resto-saas
-    access-key: minioadmin
-    secret-key: minioadmin
-    public-base-url: http://localhost:9000/resto-saas
+    provider: tidbfs
+    tidb-fs:
+      base-path: ${TIDB_FS_MOUNT_PATH:${user.home}/tidbcloudfs}
+    public-base-url: http://localhost:8080/api/v1/storage
   seed:
     enabled: true
     admin-email: admin@resto-saas.local

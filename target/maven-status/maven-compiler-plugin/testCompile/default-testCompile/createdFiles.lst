@@ -1,7 +1,0 @@
-com\restaurant\saas\architecture\ArchitectureTest.class
-com\restaurant\saas\architecture\ArchitectureTest$2.class
-com\restaurant\saas\order\GuestOrderFlowTest.class
-com\restaurant\saas\common\entity\BaseEntitySoftDeleteTest.class
-com\restaurant\saas\architecture\ArchitectureTest$1.class
-com\restaurant\saas\identity\AuthIntegrationTest.class
-com\restaurant\saas\menu\MenuAdminApiTest.class

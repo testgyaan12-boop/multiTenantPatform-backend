@@ -3,9 +3,12 @@ package com.restaurant.saas.superadmin.web;
 import com.restaurant.saas.common.web.PageResponse;
 import com.restaurant.saas.superadmin.service.SuperAdminPlatformService;
 import com.restaurant.saas.superadmin.service.SuperAdminPlatformService.InviteResponse;
+import com.restaurant.saas.superadmin.service.SuperAdminPlatformService.PasswordResetResponse;
 import com.restaurant.saas.superadmin.service.SuperAdminPlatformService.RolePermissionsRequest;
 import com.restaurant.saas.superadmin.service.SuperAdminPlatformService.RoleRequest;
 import com.restaurant.saas.superadmin.service.SuperAdminPlatformService.RoleView;
+import com.restaurant.saas.superadmin.service.SuperAdminPlatformService.UserUpdateRequest;
+import com.restaurant.saas.superadmin.service.SuperAdminPlatformService.UserRolesRequest;
 import com.restaurant.saas.superadmin.service.SuperAdminPlatformService.UserView;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -40,6 +43,37 @@ public class SuperAdminDirectoryController {
         @RequestParam(defaultValue = "0") int page,
         @RequestParam(defaultValue = "20") int size) {
         return platformService.listUsers(search, status, tenantId, page, size);
+    }
+
+    @PutMapping("/users/{id}")
+    public UserView updateUser(@PathVariable Long id, @RequestBody UserUpdateRequest request) {
+        return platformService.updateUser(id, request);
+    }
+
+    @PostMapping("/users/{id}/lock")
+    public UserView lockUser(@PathVariable Long id) {
+        return platformService.lockUser(id);
+    }
+
+    @PostMapping("/users/{id}/unlock")
+    public UserView unlockUser(@PathVariable Long id) {
+        return platformService.unlockUser(id);
+    }
+
+    @PostMapping("/users/{id}/reset-password")
+    public PasswordResetResponse resetPassword(@PathVariable Long id) {
+        return platformService.resetPassword(id);
+    }
+
+    @PutMapping("/users/{id}/roles")
+    public UserView changeUserRoles(@PathVariable Long id, @RequestBody UserRolesRequest request) {
+        return platformService.changeUserRoles(id, request);
+    }
+
+    @DeleteMapping("/users/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteUser(@PathVariable Long id) {
+        platformService.deleteUser(id);
     }
 
     @PostMapping("/users/{id}/suspend")
@@ -92,6 +126,11 @@ public class SuperAdminDirectoryController {
     @GetMapping("/roles/{id}/users")
     public List<UserView> usersInRole(@PathVariable Long id) {
         return platformService.usersInRole(id);
+    }
+
+    @PostMapping("/roles/superadmin/repair-permissions")
+    public RoleView repairSuperAdminPermissions() {
+        return platformService.repairSuperAdminPermissions();
     }
 
     @PostMapping("/users/{userId}/roles/{roleCode}")

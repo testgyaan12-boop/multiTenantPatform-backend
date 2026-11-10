@@ -98,7 +98,9 @@ public class CloudinaryAccountService {
         }
         account.setLabel(request.label());
         account.setCloudName(request.cloudName());
-        account.setApiKey(request.apiKey());
+        if (isRealApiKey(request.apiKey())) {
+            account.setApiKey(request.apiKey());
+        }
         if (request.apiSecret() != null && !request.apiSecret().isBlank()) {
             account.setApiSecretEnc(crypto.encrypt(request.apiSecret()));
         }
@@ -118,6 +120,15 @@ public class CloudinaryAccountService {
             .orElseThrow(() -> new NotFoundException("Cloudinary account " + id + " not found"));
         account.softDelete();
         accountRepository.save(account);
+    }
+
+    @Transactional
+    public AccountView setActive(Long id, boolean active) {
+        CloudinaryAccount account = accountRepository.findById(id)
+            .orElseThrow(() -> new NotFoundException("Cloudinary account " + id + " not found"));
+        account.setIsActive(active);
+        account = accountRepository.save(account);
+        return toView(account);
     }
 
     public AccountView testAccount(Long id) {
@@ -316,8 +327,11 @@ public class CloudinaryAccountService {
             a.getLastUploadAt(), a.getLastError(), a.getLastErrorAt());
     }
 
-    private static String mask(String value, int show) {
-        if (value == null || value.isBlank()) {
+    private static boolean isRealApiKey(String value) {
+        return value != null && !value.isBlank() && !value.contains("•");
+    }
+
+    private static String mask(String value, int show) {        if (value == null || value.isBlank()) {
             return "";
         }
         if (value.length() <= show) {

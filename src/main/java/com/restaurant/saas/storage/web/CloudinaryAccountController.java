@@ -68,6 +68,16 @@ public class CloudinaryAccountController {
         return accountService.refreshUsage(id);
     }
 
+    @PostMapping("/{id}/active")
+    public CloudinaryAccountService.AccountView setActive(@PathVariable Long id,
+                                                          @RequestBody Map<String, Object> body) {
+        boolean active = body.get("active") == null || Boolean.parseBoolean(body.get("active").toString());
+        CloudinaryAccountService.AccountView view = accountService.setActive(id, active);
+        audit(active ? "CLOUDINARY_ACCOUNT_ENABLED" : "CLOUDINARY_ACCOUNT_DISABLED",
+            String.valueOf(id), active ? "disabled" : "enabled", active ? "enabled" : "disabled");
+        return view;
+    }
+
     @GetMapping("/summary")
     public CloudinaryAccountService.Summary summary() {
         return accountService.summary();

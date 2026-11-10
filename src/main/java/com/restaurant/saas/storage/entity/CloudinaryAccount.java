@@ -13,7 +13,7 @@ import java.time.Instant;
 
 @Entity
 @Table(name = "cloudinary_accounts")
-@SQLRestriction("is_active = 1 AND is_delete = 0")
+@SQLRestriction("is_delete = 0")
 @Getter
 @Setter
 public class CloudinaryAccount extends BaseEntity {

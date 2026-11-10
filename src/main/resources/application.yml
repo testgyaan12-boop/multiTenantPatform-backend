@@ -105,6 +105,9 @@ app:
       exhausted-threshold-percent: ${CLOUDINARY_EXHAUSTED_THRESHOLD_PERCENT:90}
       selection: ${CLOUDINARY_SELECTION:least-used}
       encrypt-key: ${STORAGE_CREDENTIAL_KEY:}
+      capacity-per-account-bytes: ${STORAGE_CAPACITY_PER_ACCOUNT_BYTES:26843545600}
+      warning-threshold-percent: ${STORAGE_WARNING_THRESHOLD_PERCENT:75}
+      critical-threshold-percent: ${STORAGE_CRITICAL_THRESHOLD_PERCENT:90}
   seed:
     enabled: ${SEED_DEMO_DATA:true}
     admin-email: ${SEED_ADMIN_EMAIL:admin@resto-saas.local}

@@ -10,8 +10,10 @@ import com.restaurant.saas.menu.dto.MenuItemResponse;
 import com.restaurant.saas.menu.entity.ItemAttribute;
 import com.restaurant.saas.menu.entity.MenuCategory;
 import com.restaurant.saas.menu.entity.MenuItem;
+import com.restaurant.saas.menu.entity.MenuItemImage;
 import com.restaurant.saas.menu.repository.ItemAttributeRepository;
 import com.restaurant.saas.menu.repository.MenuCategoryRepository;
+import com.restaurant.saas.menu.repository.MenuItemImageRepository;
 import com.restaurant.saas.menu.repository.MenuItemRepository;
 import com.restaurant.saas.restaurant.entity.Restaurant;
 import com.restaurant.saas.restaurant.repository.RestaurantRepository;
@@ -29,16 +31,19 @@ public class MenuService {
     private final MenuItemRepository itemRepository;
     private final RestaurantRepository restaurantRepository;
     private final ItemAttributeRepository attributeRepository;
+    private final MenuItemImageRepository imageRepository;
 
     public MenuService(
         MenuCategoryRepository categoryRepository,
         MenuItemRepository itemRepository,
         RestaurantRepository restaurantRepository,
-        ItemAttributeRepository attributeRepository) {
+        ItemAttributeRepository attributeRepository,
+        MenuItemImageRepository imageRepository) {
         this.categoryRepository = categoryRepository;
         this.itemRepository = itemRepository;
         this.restaurantRepository = restaurantRepository;
         this.attributeRepository = attributeRepository;
+        this.imageRepository = imageRepository;
     }
 
     @Transactional(readOnly = true)
@@ -81,13 +86,20 @@ public class MenuService {
         if (items.isEmpty()) {
             return List.of();
         }
+        List<Long> itemIds = items.stream().map(MenuItem::getId).toList();
         Map<Long, List<ItemAttribute>> attributesByItem = attributeRepository
-            .findByTenantIdAndMenuItemIdIn(tenantId, items.stream().map(MenuItem::getId).toList())
+            .findByTenantIdAndMenuItemIdIn(tenantId, itemIds)
             .stream()
             .collect(Collectors.groupingBy(ItemAttribute::getMenuItemId));
+        Map<Long, List<MenuItemImage>> imagesByItem = imageRepository
+            .findByTenantIdAndMenuItemIdIn(tenantId, itemIds)
+            .stream()
+            .collect(Collectors.groupingBy(MenuItemImage::getMenuItemId));
         return items.stream()
             .map(item -> MenuItemResponse.from(
-                item, attributesByItem.getOrDefault(item.getId(), List.of())))
+                item,
+                attributesByItem.getOrDefault(item.getId(), List.of()),
+                imagesByItem.getOrDefault(item.getId(), List.of())))
             .toList();
     }
 
@@ -140,7 +152,11 @@ public class MenuService {
         apply(item, request);
         MenuItem saved = itemRepository.save(item);
         replaceAttributes(tenantId, saved, request.attributes());
-        return MenuItemResponse.from(saved, attributeRepository.findByTenantIdAndMenuItemId(tenantId, saved.getId()));
+        replaceImages(tenantId, saved, request.images());
+        return MenuItemResponse.from(
+            saved,
+            attributeRepository.findByTenantIdAndMenuItemId(tenantId, saved.getId()),
+            imageRepository.findByTenantIdAndMenuItemId(tenantId, saved.getId()));
     }
 
     @Transactional
@@ -154,13 +170,18 @@ public class MenuService {
         apply(item, request);
         MenuItem saved = itemRepository.save(item);
         replaceAttributes(tenantId, saved, request.attributes());
-        return MenuItemResponse.from(saved, attributeRepository.findByTenantIdAndMenuItemId(tenantId, saved.getId()));
+        replaceImages(tenantId, saved, request.images());
+        return MenuItemResponse.from(
+            saved,
+            attributeRepository.findByTenantIdAndMenuItemId(tenantId, saved.getId()),
+            imageRepository.findByTenantIdAndMenuItemId(tenantId, saved.getId()));
     }
 
     @Transactional
     public void deleteItem(Long id) {
         MenuItem item = itemRepository.findByIdAndTenantId(id, TenantContext.requireTenant())
             .orElseThrow(() -> new NotFoundException("Menu item", id));
+        imageRepository.deleteByMenuItemId(item.getId());
         item.softDelete();
         itemRepository.save(item);
     }
@@ -206,5 +227,38 @@ public class MenuService {
             entity.setSortOrder(sortOrder++);
             attributeRepository.save(entity);
         }
+    }
+
+    private void replaceImages(
+        Long tenantId, MenuItem item, List<MenuItemRequest.ImageInput> images) {
+        if (images == null) {
+            return;
+        }
+        imageRepository.deleteByMenuItemId(item.getId());
+        if (images.isEmpty()) {
+            item.setImageUrl(null);
+            itemRepository.save(item);
+            return;
+        }
+        int sortOrder = 0;
+        String coverUrl = null;
+        for (MenuItemRequest.ImageInput image : images) {
+            if (image.url() == null || image.url().isBlank()
+                || image.label() == null || image.label().isBlank()) {
+                continue;
+            }
+            MenuItemImage entity = new MenuItemImage();
+            entity.setTenantId(tenantId);
+            entity.setMenuItemId(item.getId());
+            entity.setImageUrl(image.url().trim());
+            entity.setLabel(image.label().trim());
+            entity.setSortOrder(sortOrder++);
+            imageRepository.save(entity);
+            if (coverUrl == null) {
+                coverUrl = entity.getImageUrl();
+            }
+        }
+        item.setImageUrl(coverUrl);
+        itemRepository.save(item);
     }
 }

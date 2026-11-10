@@ -32,20 +32,20 @@ public class MenuController {
     }
 
     @GetMapping("/categories")
-    @PreAuthorize("hasAuthority('menu.read')")
+    @PreAuthorize("hasAnyAuthority('menu.read', 'product.read')")
     public List<MenuCategoryResponse> categories() {
         return menuService.listCategories();
     }
 
     @PostMapping("/categories")
-    @PreAuthorize("hasAuthority('menu.manage')")
+    @PreAuthorize("hasAnyAuthority('menu.manage', 'product.manage')")
     public ResponseEntity<MenuCategoryResponse> createCategory(
         @Valid @RequestBody MenuCategoryRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(menuService.createCategory(request));
     }
 
     @PutMapping("/categories/{id}")
-    @PreAuthorize("hasAuthority('menu.manage')")
+    @PreAuthorize("hasAnyAuthority('menu.manage', 'product.manage')")
     public MenuCategoryResponse updateCategory(
         @PathVariable Long id,
         @Valid @RequestBody MenuCategoryRequest request) {
@@ -53,14 +53,14 @@ public class MenuController {
     }
 
     @DeleteMapping("/categories/{id}")
-    @PreAuthorize("hasAuthority('menu.manage')")
+    @PreAuthorize("hasAnyAuthority('menu.manage', 'product.manage')")
     public ResponseEntity<Void> deleteCategory(@PathVariable Long id) {
         menuService.deleteCategory(id);
         return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/items")
-    @PreAuthorize("hasAuthority('menu.read')")
+    @PreAuthorize("hasAnyAuthority('menu.read', 'product.read')")
     public List<MenuItemResponse> items(
         @RequestParam(required = false) Long categoryId,
         @RequestParam(required = false) String search) {
@@ -68,19 +68,19 @@ public class MenuController {
     }
 
     @PostMapping("/items")
-    @PreAuthorize("hasAuthority('menu.manage')")
+    @PreAuthorize("hasAnyAuthority('menu.manage', 'product.manage')")
     public ResponseEntity<MenuItemResponse> createItem(@Valid @RequestBody MenuItemRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(menuService.createItem(request));
     }
 
     @PutMapping("/items/{id}")
-    @PreAuthorize("hasAuthority('menu.manage')")
+    @PreAuthorize("hasAnyAuthority('menu.manage', 'product.manage')")
     public MenuItemResponse updateItem(@PathVariable Long id, @Valid @RequestBody MenuItemRequest request) {
         return menuService.updateItem(id, request);
     }
 
     @DeleteMapping("/items/{id}")
-    @PreAuthorize("hasAuthority('menu.manage')")
+    @PreAuthorize("hasAnyAuthority('menu.manage', 'product.manage')")
     public ResponseEntity<Void> deleteItem(@PathVariable Long id) {
         menuService.deleteItem(id);
         return ResponseEntity.noContent().build();

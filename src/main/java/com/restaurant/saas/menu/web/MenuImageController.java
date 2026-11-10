@@ -55,7 +55,7 @@ public class MenuImageController {
     }
 
     @PostMapping(value = "/image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("hasAuthority('menu.manage')")
+    @PreAuthorize("hasAnyAuthority('menu.manage', 'product.manage')")
     @ResponseBody
     public ImageUploadResponse uploadMenuImage(@RequestParam("file") MultipartFile file) throws IOException {
         if (file.isEmpty()) {
@@ -89,7 +89,7 @@ public class MenuImageController {
     }
 
     @PostMapping(value = "/items/{id}/image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("hasAuthority('menu.manage')")
+    @PreAuthorize("hasAnyAuthority('menu.manage', 'product.manage')")
     @ResponseBody
     public ImageUploadResponse attachMenuImage(@PathVariable Long id, @RequestParam("file") MultipartFile file) throws IOException {
         String url = uploadMenuImage(file).url();

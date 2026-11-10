@@ -2,6 +2,7 @@ package com.restaurant.saas.menu.dto;
 
 import com.restaurant.saas.menu.entity.ItemAttribute;
 import com.restaurant.saas.menu.entity.MenuItem;
+import com.restaurant.saas.menu.entity.MenuItemImage;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -24,13 +25,18 @@ public record MenuItemResponse(
     Integer sortOrder,
     Integer stockQty,
     List<AttributeView> attributes,
+    List<ImageView> images,
     Instant updatedAt
 ) {
 
     public record AttributeView(String key, String value) {
     }
 
-    public static MenuItemResponse from(MenuItem item, List<ItemAttribute> attributes) {
+    public record ImageView(String url, String label, Integer sortOrder) {
+    }
+
+    public static MenuItemResponse from(
+        MenuItem item, List<ItemAttribute> attributes, List<MenuItemImage> images) {
         return new MenuItemResponse(
             item.getId(),
             item.getCategoryId(),
@@ -49,6 +55,9 @@ public record MenuItemResponse(
             item.getStockQty(),
             attributes.stream()
                 .map(attribute -> new AttributeView(attribute.getAttrKey(), attribute.getAttrValue()))
+                .toList(),
+            images.stream()
+                .map(image -> new ImageView(image.getImageUrl(), image.getLabel(), image.getSortOrder()))
                 .toList(),
             item.getUpdatedAt()
         );

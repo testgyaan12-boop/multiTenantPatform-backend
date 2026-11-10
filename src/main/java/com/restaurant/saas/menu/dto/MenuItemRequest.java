@@ -23,12 +23,19 @@ public record MenuItemRequest(
     Integer calories,
     Integer sortOrder,
     Integer stockQty,
-    @Valid @Size(max = 30) List<AttributeInput> attributes
+    @Valid @Size(max = 30) List<AttributeInput> attributes,
+    @Valid @Size(max = 10) List<ImageInput> images
 ) {
 
     public record AttributeInput(
         @NotBlank @Size(max = 60) String key,
         @NotBlank @Size(max = 255) String value
+    ) {
+    }
+
+    public record ImageInput(
+        @NotBlank @Size(max = 500) String url,
+        @NotBlank @Size(max = 60) String label
     ) {
     }
 }

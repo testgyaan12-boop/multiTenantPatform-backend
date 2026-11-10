@@ -30,7 +30,7 @@ public class OrderController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAuthority('order.read')")
+    @PreAuthorize("hasAnyAuthority('order.read', 'product_order.read')")
     public PageResponse<OrderResponse> list(
         @RequestParam(required = false) Long branchId,
         @RequestParam(required = false) String status,
@@ -53,7 +53,7 @@ public class OrderController {
     }
 
     @GetMapping("/counts")
-    @PreAuthorize("hasAuthority('order.read')")
+    @PreAuthorize("hasAnyAuthority('order.read', 'product_order.read')")
     public com.restaurant.saas.order.dto.OrderCountsResponse counts(
         @RequestParam(required = false) Long branchId,
         @RequestParam(required = false) Integer days) {
@@ -73,19 +73,19 @@ public class OrderController {
     }
 
     @GetMapping("/{id}/timeline")
-    @PreAuthorize("hasAuthority('order.read')")
+    @PreAuthorize("hasAnyAuthority('order.read', 'product_order.read')")
     public java.util.List<com.restaurant.saas.order.dto.OrderTimelineEntry> timeline(@PathVariable Long id) {
         return orderService.timeline(TenantContext.requireTenant(), id);
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAuthority('order.read')")
+    @PreAuthorize("hasAnyAuthority('order.read', 'product_order.read')")
     public OrderResponse get(@PathVariable Long id) {
         return orderService.getForTenant(TenantContext.requireTenant(), id);
     }
 
     @PostMapping("/{id}/status")
-    @PreAuthorize("hasAuthority('order.manage')")
+    @PreAuthorize("hasAnyAuthority('order.manage', 'product_order.manage')")
     public OrderResponse updateStatus(
         @PathVariable Long id,
         @RequestParam String status,

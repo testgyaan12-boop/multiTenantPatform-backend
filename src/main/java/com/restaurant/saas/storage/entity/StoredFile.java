@@ -30,6 +30,12 @@ public class StoredFile extends BaseEntity {
     @Column(name = "size_bytes", nullable = false)
     private Long sizeBytes;
 
+    @Column(name = "provider", nullable = false)
+    private String provider = "LOCAL";
+
+    @Column(name = "cloudinary_account_id")
+    private Long cloudinaryAccountId;
+
     @Column(name = "public_url")
     private String publicUrl;
 

@@ -91,7 +91,7 @@ app:
       api-key: ${STRIPE_API_KEY:}
       webhook-secret: ${STRIPE_WEBHOOK_SECRET:}
   storage:
-    provider: ${STORAGE_PROVIDER:local}
+    provider: ${STORAGE_PROVIDER:cloudinary}
     endpoint: ${STORAGE_ENDPOINT:http://localhost:9000}
     region: ${STORAGE_REGION:us-east-1}
     bucket: ${STORAGE_BUCKET:resto-saas}
@@ -99,6 +99,12 @@ app:
     secret-key: ${STORAGE_SECRET_KEY:minioadmin}
     public-base-url: ${STORAGE_PUBLIC_BASE_URL:http://localhost:9000/resto-saas}
     local-dir: ${STORAGE_LOCAL_DIR:uploads}
+    cloudinary:
+      folder: ${CLOUDINARY_FOLDER:resto-saas}
+      usage-refresh-minutes: ${CLOUDINARY_USAGE_REFRESH_MINUTES:15}
+      exhausted-threshold-percent: ${CLOUDINARY_EXHAUSTED_THRESHOLD_PERCENT:90}
+      selection: ${CLOUDINARY_SELECTION:least-used}
+      encrypt-key: ${STORAGE_CREDENTIAL_KEY:}
   seed:
     enabled: ${SEED_DEMO_DATA:true}
     admin-email: ${SEED_ADMIN_EMAIL:admin@resto-saas.local}

@@ -5,6 +5,7 @@ import com.restaurant.saas.common.exception.NotFoundException;
 import com.restaurant.saas.common.tenant.TenantContext;
 import com.restaurant.saas.menu.entity.MenuItem;
 import com.restaurant.saas.menu.repository.MenuItemRepository;
+import com.restaurant.saas.storage.service.FileStorage;
 import com.restaurant.saas.storage.service.StorageService;
 import jakarta.annotation.PostConstruct;
 import javax.imageio.ImageIO;
@@ -77,7 +78,7 @@ public class MenuImageController {
         String original = StringUtils.cleanPath(
             file.getOriginalFilename() == null ? "image.jpg" : file.getOriginalFilename());
 
-        StorageService.UploadResult result = storageService.upload(
+        FileStorage.UploadResult result = storageService.upload(
             new java.io.ByteArrayInputStream(bos.toByteArray()),
             original,
             "image/jpeg",

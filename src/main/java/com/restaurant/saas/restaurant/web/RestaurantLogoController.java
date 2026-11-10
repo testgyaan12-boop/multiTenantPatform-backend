@@ -1,8 +1,9 @@
 package com.restaurant.saas.restaurant.web;
 
 import com.restaurant.saas.common.exception.ApiException;
-import jakarta.annotation.PostConstruct;
-import org.springframework.beans.factory.annotation.Value;
+import com.restaurant.saas.common.tenant.TenantContext;
+import com.restaurant.saas.storage.service.FileStorage;
+import com.restaurant.saas.storage.service.StorageService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -11,17 +12,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/restaurant")
@@ -32,17 +26,10 @@ public class RestaurantLogoController {
     private static final Set<String> EXTENSIONS = Set.of("png", "jpg", "jpeg", "webp", "gif", "svg");
     private static final long MAX_BYTES = 5L * 1024 * 1024;
 
-    private final Path uploadDir;
+    private final StorageService storageService;
 
-    public RestaurantLogoController(@Value("${app.storage.local-dir:uploads}") String uploadDir) {
-        this.uploadDir = Paths.get(uploadDir).toAbsolutePath().normalize();
-    }
-
-    @PostConstruct
-    void init() throws IOException {
-        Files.createDirectories(uploadDir.resolve("logos"));
-        Files.createDirectories(uploadDir.resolve("covers"));
-        Files.createDirectories(uploadDir.resolve("gallery"));
+    public RestaurantLogoController(StorageService storageService) {
+        this.storageService = storageService;
     }
 
     public record LogoUploadResponse(String url) {
@@ -87,16 +74,10 @@ public class RestaurantLogoController {
         if (!EXTENSIONS.contains(ext)) {
             ext = "png";
         }
-        String fileName = UUID.randomUUID() + "." + ext;
-        Path target = uploadDir.resolve(subDir).resolve(fileName);
-        try (var in = file.getInputStream()) {
-            Files.copy(in, target, StandardCopyOption.REPLACE_EXISTING);
-        }
-        return ServletUriComponentsBuilder.fromCurrentContextPath()
-            .path("/uploads/")
-            .path(subDir)
-            .path("/")
-            .path(fileName)
-            .toUriString();
+
+        Long tenantId = TenantContext.requireTenant();
+        FileStorage.UploadResult result = storageService.upload(
+            file.getInputStream(), original, contentType, file.getSize(), subDir, tenantId);
+        return result.url();
     }
 }
